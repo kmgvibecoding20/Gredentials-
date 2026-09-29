@@ -1,0 +1,892 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Календарь судебных заседаний</title>
+<style>
+  :root {
+    --mint: #AAF0D1;
+    --mint-dark: #7FD8B0;
+    --pistachio: #BEF574;
+    --zas: #FFE135;
+    --res: #4CAF50;
+    --term: #FFF8C6;
+    --orange: #FFA64D;
+    --line: #8a9a92;
+    --ink: #111;
+    --muted: #666;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; color: var(--ink); }
+  body, button, input, select, textarea {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 14pt;
+  }
+  header { padding: 10px 16px 6px; background: #f4fbf7; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 16pt; margin: 0 0 8px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
+  .grow { flex: 1; }
+  button {
+    padding: 3px 12px; border: 1px solid #6f8279; background: #fff; color: var(--ink);
+    border-radius: 3px; cursor: pointer;
+  }
+  button:hover { background: #eef8f3; }
+  button.primary { background: var(--mint-dark); }
+  button.danger { border-color: #b33; color: #b33; }
+  select, input[type=text], input[type=search], input[type=date], input[type=email], textarea {
+    padding: 2px 6px; border: 1px solid #6f8279; border-radius: 3px; background: #fff; color: var(--ink);
+  }
+  .tabs { display: flex; flex-wrap: wrap; gap: 3px; }
+  .tabs button { padding: 2px 9px; background: #fff; }
+  .tabs button.active { background: var(--mint-dark); font-weight: bold; }
+  .tabs button:disabled { opacity: .35; cursor: default; background: #fff; }
+
+  .warn { margin: 8px 16px 0; padding: 6px 10px; border: 1px solid #b33; background: #fdeaea; }
+  .banner { margin: 8px 16px 0; padding: 8px 12px; background: var(--orange); border: 1px solid #b86a1d; }
+  .banner b { display: block; margin-bottom: 4px; }
+  .banner ul { margin: 0; padding-left: 22px; }
+
+  main { padding: 6px 16px 24px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 6px 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { display: inline-block; width: 26px; height: 20px; border: 1px solid var(--line); text-align: center; line-height: 18px; font-weight: bold; }
+  h2.month { text-align: center; font-size: 20pt; margin: 8px 0; letter-spacing: 1px; }
+
+  .wrap { overflow: auto; max-height: 72vh; border: 1px solid var(--line); }
+  table.grid { border-collapse: separate; border-spacing: 0; }
+  .grid th, .grid td { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 2px 5px; vertical-align: middle; }
+  .grid thead th { position: sticky; top: 0; z-index: 4; background: var(--mint-dark); font-weight: bold; text-align: center; line-height: 1.15; }
+  .grid .c1, .grid .c2, .grid .c3, .grid .c4 { position: sticky; z-index: 2; }
+  .grid thead .c1, .grid thead .c2, .grid thead .c3, .grid thead .c4 { z-index: 6; }
+  .c1 { left: 0; width: 48px; min-width: 48px; max-width: 48px; text-align: center; }
+  .c2 { left: 48px; width: 160px; min-width: 160px; max-width: 160px; }
+  .c3 { left: 208px; width: 290px; min-width: 290px; max-width: 290px; }
+  .c4 { left: 498px; width: 240px; min-width: 240px; max-width: 240px; border-right: 2px solid #555 !important; }
+  tbody .c1, tbody .c3 { background: #fff; }
+  tbody .c2 { background: var(--mint); cursor: pointer; }
+  tbody .c3 { cursor: pointer; line-height: 1.2; }
+  tbody .c4 { background: var(--pistachio); }
+  .c4 select { width: 100%; background: transparent; border: none; padding: 2px 0; cursor: pointer; }
+  .c3 .sub { color: #333; }
+  .env { color: #b35c00; font-weight: bold; }
+  th.day, td.day { width: 66px; min-width: 66px; max-width: 66px; text-align: center; }
+  th.day .wd { font-weight: normal; }
+  td.day { position: relative; height: 52px; cursor: pointer; font-weight: bold; padding: 1px 2px; }
+  td.day:hover { filter: brightness(.94); }
+  td.per { background: var(--term); }
+  td.p14 { background: var(--orange); }
+  td.last { background: var(--orange); outline: 3px solid #1a1a1a; outline-offset: -3px; }
+  .lastlbl { font-size: 9pt; line-height: 1; font-weight: bold; }
+  td.mZ { background: var(--zas); }
+  td.mR { background: var(--res); color: #fff; }
+  td.mO { color: #888; }
+  td.note::after { content: ""; position: absolute; top: 0; right: 0; border-left: 8px solid transparent; border-top: 8px solid #c0392b; }
+  .today { box-shadow: inset 3px 0 0 #000, inset -3px 0 0 #000; }
+  thead th.today { box-shadow: inset 3px 0 0 #000, inset -3px 0 0 #000, inset 0 3px 0 #000; }
+  th.cm, td.cm { min-width: 220px; max-width: 320px; }
+  td.cm { cursor: pointer; font-size: 13pt; }
+  td.empty { padding: 18px; color: var(--muted); text-align: left; }
+
+  table.totals { border-collapse: collapse; margin-top: 4px; }
+  .totals th, .totals td { border: 1px solid var(--line); padding: 3px 10px; text-align: center; }
+  .totals th { background: var(--mint-dark); }
+  .totals td.all, .totals th.all { font-weight: bold; }
+  h3 { font-size: 14pt; margin: 14px 0 4px; }
+  .hint { color: var(--muted); font-size: 12pt; }
+
+  .cellmenu {
+    position: absolute; z-index: 50; background: #fff; border: 1px solid #555; padding: 8px 10px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.2); width: 330px;
+  }
+  .cellmenu .t { font-weight: bold; margin-bottom: 6px; }
+  .cellmenu .btns { display: flex; gap: 6px; margin-bottom: 8px; }
+  .cellmenu .btns button { min-width: 44px; font-weight: bold; }
+  .cellmenu .btns .mZ { background: var(--zas); }
+  .cellmenu .btns .mR { background: var(--res); color: #fff; }
+  .cellmenu .btns .mO { color: #888; }
+  .cellmenu input { width: 100%; }
+  .cellmenu .small { font-size: 11pt; color: var(--muted); margin-top: 6px; }
+
+  dialog { border: 1px solid #555; padding: 16px 20px; width: min(680px, calc(100% - 32px)); }
+  dialog::backdrop { background: rgba(0,0,0,.35); }
+  dialog h2 { margin: 0 0 10px; font-size: 16pt; }
+  dialog label { display: block; margin: 7px 0; }
+  dialog label > input, dialog label > select, dialog label > textarea { display: block; width: 100%; margin-top: 2px; }
+  dialog .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
+  dialog .actions .left { margin-right: auto; }
+  .req::after { content: " *"; color: #b33; }
+  .err { color: #b33; min-height: 1.2em; }
+  .info { font-size: 12pt; color: #333; background: #f4fbf7; border: 1px solid var(--line); padding: 6px 10px; }
+  .emp-row { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
+  .emp-row input[type=text] { flex: 1; }
+  fieldset { border: 1px solid var(--line); margin: 10px 0; padding: 6px 12px 10px; }
+  legend { font-weight: bold; padding: 0 4px; }
+
+  @media print {
+    @page { size: A4 landscape; margin: 8mm; }
+    header .row, #banner, #storageWarn, .hint, .cellmenu, dialog { display: none !important; }
+    header { background: none; border: none; padding: 0; }
+    body, button, input, select, textarea { font-size: 8pt; }
+    h1 { font-size: 10pt; }
+    h2.month { font-size: 12pt; margin: 2px 0; }
+    .wrap { max-height: none; overflow: visible; border: none; }
+    .grid thead th, .grid .c1, .grid .c2, .grid .c3, .grid .c4 { position: static; }
+    .c1 { width: 20px; min-width: 20px; max-width: 20px; }
+    .c2 { width: 70px; min-width: 70px; max-width: 70px; }
+    .c3 { width: 150px; min-width: 150px; max-width: 150px; }
+    .c4 { width: 80px; min-width: 80px; max-width: 80px; }
+    th.day, td.day { width: 26px; min-width: 26px; max-width: 26px; height: 24px; }
+    .lastlbl { font-size: 5pt; }
+    th.cm, td.cm { min-width: 70px; }
+    .c4 select { appearance: none; -webkit-appearance: none; white-space: normal; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Учёт участия в судебных разбирательствах — отдел правового обеспечения</h1>
+  <div class="row">
+    <label>Год <select id="year"></select></label>
+    <div id="tabs" class="tabs"></div>
+  </div>
+  <div class="row">
+    <label>Сотрудник <select id="empFilter"></select></label>
+    <input id="search" type="search" placeholder="Поиск по наименованию дела" style="width:280px">
+    <span class="grow"></span>
+    <button id="btnAdd" class="primary">Добавить дело</button>
+    <button id="btnExport">Экспорт в Excel</button>
+    <button id="btnBackup">Резервная копия</button>
+    <button id="btnPrint">Печать</button>
+    <button id="btnSettings">Настройки</button>
+  </div>
+</header>
+
+<div id="storageWarn" class="warn" hidden>Хранилище браузера недоступно — данные не сохранятся после закрытия страницы. Регулярно сохраняйте резервную копию.</div>
+<div id="banner" class="banner" hidden></div>
+
+<main>
+  <div class="legend">
+    <span><i class="sw" style="background:var(--zas)">З</i> судебное заседание проведено</span>
+    <span><i class="sw" style="background:var(--res);color:#fff">Р</i> судом принято решение (оглашено)</span>
+    <span><i class="sw" style="color:#888">О</i> заседание отложено</span>
+    <span><i class="sw" style="background:var(--term)"></i> срок апелляционного обжалования</span>
+    <span><i class="sw" style="background:var(--orange)"></i> последние 14 дней срока</span>
+    <span><i class="sw" style="background:var(--orange);outline:3px solid #1a1a1a;outline-offset:-3px"></i> последний день срока</span>
+  </div>
+  <h2 class="month" id="monthTitle"></h2>
+  <div class="wrap"><table class="grid" id="grid"><thead></thead><tbody></tbody></table></div>
+  <h3>Количество заседаний за месяц</h3>
+  <table class="totals" id="totals"></table>
+  <p class="hint">Клик по ячейке дня — отметка З / Р / О и примечание (время, зал). Клик по ФИО, делу или комментарию — карточка дела. Красный уголок в ячейке — есть примечание (наведите курсор). В количество заседаний входят отметки «З» и «Р».</p>
+</main>
+
+<div id="cellMenu" class="cellmenu" hidden>
+  <div class="t" id="cmTitle"></div>
+  <div class="btns">
+    <button data-mark="З" class="mZ" title="Судебное заседание проведено">З</button>
+    <button data-mark="Р" class="mR" title="Судом принято решение (оглашено)">Р</button>
+    <button data-mark="О" class="mO" title="Заседание отложено">О</button>
+    <button data-mark="">Очистить</button>
+  </div>
+  <input id="cmNote" type="text" placeholder="Примечание: время, зал">
+  <div class="small">Выберите отметку — примечание сохранится вместе с ней. Enter — обновить примечание у текущей отметки.</div>
+</div>
+
+<dialog id="dlgCase">
+  <h2 id="caseTitle">Добавить дело</h2>
+  <label><span class="req">Сотрудник</span><select id="f_emp"></select></label>
+  <label><span class="req">Номер дела</span><input id="f_number" type="text"></label>
+  <label><span class="req">Вид дела</span>
+    <select id="f_kind">
+      <option value="APPK">Административное (АППК РК)</option>
+      <option value="GPK">Гражданское (ГПК РК)</option>
+    </select>
+  </label>
+  <label><span class="req">Суд</span><input id="f_court" type="text"></label>
+  <label><span class="req">Стороны (истец / ответчик)</span><input id="f_parties" type="text"></label>
+  <label>Предмет спора<input id="f_subject" type="text"></label>
+  <label><span class="req">Статус дела</span><select id="f_status"></select></label>
+  <label>Дата оглашения решения (начало срока обжалования)<input id="f_decision" type="date"></label>
+  <div class="info" id="f_deadline"></div>
+  <label>Комментарии<textarea id="f_comments" rows="3"></textarea></label>
+  <div class="err" id="caseErr"></div>
+  <div class="actions">
+    <button id="caseDelete" class="danger left">Удалить дело</button>
+    <button id="caseCancel">Отмена</button>
+    <button id="caseSave" class="primary">Сохранить</button>
+  </div>
+</dialog>
+
+<dialog id="dlgSettings">
+  <h2>Настройки</h2>
+  <fieldset>
+    <legend>Сотрудники</legend>
+    <div id="empList"></div>
+    <button id="empAdd">Добавить сотрудника</button>
+  </fieldset>
+  <fieldset>
+    <legend>Напоминания по почте (EmailJS)</legend>
+    <label>Адрес получателя<input id="s_to" type="email"></label>
+    <label>Service ID<input id="s_service" type="text"></label>
+    <label>Template ID<input id="s_template" type="text"></label>
+    <label>Public Key<input id="s_key" type="text"></label>
+    <div class="info">
+      Зарегистрируйтесь на emailjs.com (бесплатный тариф), подключите почтовый сервис и создайте шаблон.
+      В шаблоне укажите: <b>To Email</b> — <code>{{to_email}}</code>, <b>Subject</b> — <code>{{subject}}</code>, тело письма — <code>{{message}}</code>.
+      Письмо уходит за 14 дней до окончания срока, если сайт открыт (проверка при открытии и раз в час).
+    </div>
+    <div class="row"><button id="s_test">Отправить тестовое письмо</button><span id="s_testMsg"></span></div>
+  </fieldset>
+  <div class="err" id="setErr"></div>
+  <div class="actions">
+    <button id="setCancel">Отмена</button>
+    <button id="setSave" class="primary">Сохранить</button>
+  </div>
+</dialog>
+
+<dialog id="dlgExport">
+  <h2>Экспорт в Excel</h2>
+  <label><input type="radio" name="exp" value="month" checked> Выбранный месяц</label>
+  <label><input type="radio" name="exp" value="year"> Весь год (каждый месяц — отдельный лист)</label>
+  <div class="err" id="expErr"></div>
+  <div class="actions">
+    <button id="expCancel">Отмена</button>
+    <button id="expGo" class="primary">Скачать .xlsx</button>
+  </div>
+</dialog>
+
+<dialog id="dlgBackup">
+  <h2>Резервная копия</h2>
+  <p>Все данные хранятся только в этом браузере. Сохраняйте резервную копию регулярно.</p>
+  <div class="row">
+    <button id="bkSave" class="primary">Сохранить резервную копию (.json)</button>
+    <button id="bkLoad">Загрузить резервную копию (.json)</button>
+    <input id="bkFile" type="file" accept=".json,application/json" hidden>
+  </div>
+  <div class="err" id="bkErr"></div>
+  <div class="actions"><button id="bkClose">Закрыть</button></div>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const STORE_KEY = 'courtCalendar.v1';
+  const STATUSES = [
+    'Назначено к рассмотрению', 'На рассмотрении', 'Заседание отложено', 'Приостановлено',
+    'Решение принято', 'Срок обжалования', 'Подана апелляционная жалоба',
+    'Решение вступило в силу', 'Завершено'
+  ];
+  const AUTO = ['Решение принято', 'Срок обжалования', 'Решение вступило в силу'];
+  const ACTIVE = ['Назначено к рассмотрению', 'На рассмотрении', 'Заседание отложено', 'Приостановлено'];
+  const APPEALED = 'Подана апелляционная жалоба';
+  const NO_REMIND = [APPEALED, 'Завершено'];
+  const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+  const WD = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+  const KIND = {
+    APPK: { short: 'АППК', full: 'Административное (АППК РК)', months: 2 },
+    GPK: { short: 'ГПК', full: 'Гражданское (ГПК РК)', months: 1 }
+  };
+  const MARK_CLS = { 'З': 'mZ', 'Р': 'mR', 'О': 'mO' };
+  const MARK_TITLE = { 'З': 'Судебное заседание проведено', 'Р': 'Судом принято решение (оглашено)', 'О': 'Заседание отложено' };
+  const START = { y: 2026, m: 8 };
+  const DEFAULT_TO = 'taniriss555@pochta.ru';
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+
+  // ---------- Хранение ----------
+  function defaultState() {
+    return {
+      version: 1,
+      employees: ['Омаров С.', 'Петров А.', 'Сапаров О.', 'Светлова И.', 'Федорова _.', 'Свиридова Е.']
+        .map((name, i) => ({ id: 'e' + (i + 1), name, hidden: false })),
+      cases: [],
+      settings: { to: DEFAULT_TO, serviceId: '', templateId: '', publicKey: '' }
+    };
+  }
+  function normalize(s) {
+    const d = defaultState();
+    s.settings = Object.assign(d.settings, s.settings || {});
+    s.cases.forEach(c => { c.marks = c.marks || {}; });
+    return s;
+  }
+  let storageOk = true;
+  function load() {
+    try {
+      localStorage.setItem(STORE_KEY + '.test', '1');
+      localStorage.removeItem(STORE_KEY + '.test');
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (s && Array.isArray(s.cases) && Array.isArray(s.employees)) return normalize(s);
+      }
+    } catch (e) { storageOk = false; }
+    return defaultState();
+  }
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+    catch (e) { storageOk = false; }
+    $('storageWarn').hidden = storageOk;
+  }
+  let state = load();
+
+  // ---------- Даты ----------
+  const pad = n => String(n).padStart(2, '0');
+  const iso = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
+  function todayStr() { const t = new Date(); return iso(t.getFullYear(), t.getMonth(), t.getDate()); }
+  function parts(s) { const [y, m, d] = s.split('-').map(Number); return { y, m: m - 1, d }; }
+  function dnum(s) { const p = parts(s); return Math.round(Date.UTC(p.y, p.m, p.d) / 864e5); }
+  function fmt(s) { if (!s) return ''; const p = parts(s); return `${pad(p.d)}.${pad(p.m + 1)}.${p.y}`; }
+  function fmtShort(s) { const p = parts(s); return `${pad(p.d)}.${pad(p.m + 1)}`; }
+  const ymKey = (y, m) => `${y}-${pad(m + 1)}`;
+
+  // Срок истекает в соответствующее число последнего месяца; нет такого числа — последний день месяца;
+  // суббота/воскресенье — перенос на ближайший понедельник.
+  function addMonthsDeadline(s, n) {
+    const p = parts(s);
+    let m = p.m + n;
+    const y = p.y + Math.floor(m / 12);
+    m = ((m % 12) + 12) % 12;
+    const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    const dt = new Date(Date.UTC(y, m, Math.min(p.d, last)));
+    const w = dt.getUTCDay();
+    if (w === 6) dt.setUTCDate(dt.getUTCDate() + 2);
+    else if (w === 0) dt.setUTCDate(dt.getUTCDate() + 1);
+    return iso(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate());
+  }
+  function deadlineOf(c) {
+    return c.decisionDate && KIND[c.kind] ? addMonthsDeadline(c.decisionDate, KIND[c.kind].months) : null;
+  }
+  function workdays(y, m) {
+    const out = [], last = new Date(y, m + 1, 0).getDate();
+    for (let d = 1; d <= last; d++) {
+      const w = new Date(y, m, d).getDay();
+      if (w >= 1 && w <= 5) out.push({ d, w, s: iso(y, m, d) });
+    }
+    return out;
+  }
+
+  // ---------- Логика дел ----------
+  function empName(id) { const e = state.employees.find(x => x.id === id); return e ? e.name : '—'; }
+  function empIndex(id) { const i = state.employees.findIndex(x => x.id === id); return i < 0 ? 999 : i; }
+  function sortCases(a, b) { return empIndex(a.empId) - empIndex(b.empId) || String(a.number).localeCompare(String(b.number), 'ru'); }
+
+  function autoStatus(c) {
+    if (!c.decisionDate || !AUTO.includes(c.status)) return false;
+    const t = todayStr(), end = deadlineOf(c);
+    const s = t <= c.decisionDate ? 'Решение принято' : (t <= end ? 'Срок обжалования' : 'Решение вступило в силу');
+    if (s !== c.status) { c.status = s; return true; }
+    return false;
+  }
+  function applyAuto() {
+    let changed = false;
+    state.cases.forEach(c => { if (autoStatus(c)) changed = true; });
+    if (changed) save();
+  }
+  function caseInMonth(c, y, m) {
+    const key = ymKey(y, m);
+    if (Object.keys(c.marks).some(k => k.startsWith(key))) return true;
+    if (c.startYm === key) return true;
+    if (ACTIVE.includes(c.status) && (c.startYm || '') <= key) return true;
+    const end = deadlineOf(c);
+    if (end && c.status !== APPEALED && c.decisionDate.slice(0, 7) <= key && end.slice(0, 7) >= key) return true;
+    return false;
+  }
+  function recomputeDecision(c) {
+    const rs = Object.keys(c.marks).filter(k => c.marks[k].m === 'Р').sort();
+    c.decisionDate = rs.length ? rs[rs.length - 1] : null;
+    if (!c.decisionDate && AUTO.includes(c.status)) c.status = 'На рассмотрении';
+  }
+  function setMark(c, ds, mark, note) {
+    const prev = c.marks[ds];
+    if (!mark) delete c.marks[ds];
+    else c.marks[ds] = { m: mark, note: note || '' };
+    if (mark === 'Р') {
+      c.decisionDate = ds;
+      c.status = 'Решение принято';
+      autoStatus(c);
+    } else if (prev && prev.m === 'Р' && c.decisionDate === ds) {
+      recomputeDecision(c);
+    }
+    save();
+    render();
+  }
+  function periodInfo(c, ds) {
+    const end = deadlineOf(c);
+    if (!end || c.status === APPEALED || ds <= c.decisionDate || ds > end) return null;
+    const left = dnum(end) - dnum(ds);
+    return { end, left, last: ds === end, orange: left <= 14 };
+  }
+  function monthCounts(y, m) {
+    const key = ymKey(y, m);
+    const map = {};
+    state.cases.forEach(c => {
+      Object.keys(c.marks).forEach(k => {
+        if (k.startsWith(key) && (c.marks[k].m === 'З' || c.marks[k].m === 'Р')) map[c.empId] = (map[c.empId] || 0) + 1;
+      });
+    });
+    const rows = state.employees.filter(e => !e.hidden || map[e.id]).map(e => ({ name: e.name, n: map[e.id] || 0 }));
+    return { rows, total: rows.reduce((a, r) => a + r.n, 0) };
+  }
+  function caseText(c) {
+    return `№ ${c.number} (${KIND[c.kind] ? KIND[c.kind].short : ''}), ${c.court}, ${c.parties}${c.subject ? ', ' + c.subject : ''}`;
+  }
+
+  // ---------- Вид ----------
+  const view = (() => {
+    const t = new Date();
+    let y = t.getFullYear(), m = t.getMonth();
+    if (y < START.y || (y === START.y && m < START.m)) { y = START.y; m = START.m; }
+    return { y, m, emp: 'all', q: '' };
+  })();
+
+  function yearsList() {
+    let max = Math.max(new Date().getFullYear() + 1, view.y, START.y + 1);
+    state.cases.forEach(c => {
+      Object.keys(c.marks).forEach(k => { max = Math.max(max, +k.slice(0, 4)); });
+      const end = deadlineOf(c);
+      if (end) max = Math.max(max, +end.slice(0, 4));
+    });
+    const out = [];
+    for (let y = START.y; y <= max; y++) out.push(y);
+    return out;
+  }
+
+  function renderControls() {
+    $('year').innerHTML = yearsList().map(y => `<option value="${y}"${y === view.y ? ' selected' : ''}>${y}</option>`).join('');
+    $('tabs').innerHTML = MONTHS.map((name, i) => {
+      const dis = view.y === START.y && i < START.m;
+      return `<button data-m="${i}" class="${i === view.m ? 'active' : ''}"${dis ? ' disabled' : ''}>${name}</button>`;
+    }).join('');
+    const opts = ['<option value="all">Все</option>'].concat(
+      state.employees.filter(e => !e.hidden).map(e => `<option value="${e.id}">${esc(e.name)}</option>`));
+    $('empFilter').innerHTML = opts.join('');
+    if (view.emp !== 'all' && !state.employees.some(e => e.id === view.emp && !e.hidden)) view.emp = 'all';
+    $('empFilter').value = view.emp;
+  }
+
+  let lastMailError = '';
+  function reminderCases() {
+    const t = todayStr();
+    return state.cases.map(c => {
+      const end = deadlineOf(c);
+      if (!end || NO_REMIND.includes(c.status)) return null;
+      const left = dnum(end) - dnum(t);
+      return left >= 0 && left <= 14 ? { c, end, left } : null;
+    }).filter(Boolean).sort((a, b) => a.left - b.left);
+  }
+  function renderBanner() {
+    const list = reminderCases();
+    const b = $('banner');
+    if (!list.length) { b.hidden = true; return; }
+    const configured = emailConfigured();
+    b.innerHTML = '<b>Истекает срок обжалования</b><ul>' + list.map(({ c, end, left }) => {
+      let mail;
+      if (c.remind && c.remind.forEnd === end) mail = `<span class="env">✉</span> письмо отправлено ${fmt(c.remind.sent)}`;
+      else if (!configured) mail = 'письмо не отправлено — заполните настройки EmailJS';
+      else mail = 'письмо ожидает отправки' + (lastMailError ? ` (ошибка: ${esc(lastMailError)})` : '');
+      const leftTxt = left === 0 ? 'сегодня последний день' : `осталось ${left} дн.`;
+      return `<li>№ ${esc(c.number)} (${KIND[c.kind].short}) — ${esc(empName(c.empId))}, ${esc(c.court)}; решение ${fmt(c.decisionDate)}; последний день <b style="display:inline">${fmt(end)}</b>, ${leftTxt} — ${mail}</li>`;
+    }).join('') + '</ul>';
+    b.hidden = false;
+  }
+
+  function visibleCases() {
+    const q = view.q.trim().toLowerCase();
+    return state.cases.filter(c => caseInMonth(c, view.y, view.m))
+      .filter(c => view.emp === 'all' || c.empId === view.emp)
+      .filter(c => !q || [c.number, c.court, c.parties, c.subject, KIND[c.kind] && KIND[c.kind].short].join(' ').toLowerCase().includes(q))
+      .sort(sortCases);
+  }
+
+  function renderGrid() {
+    const days = workdays(view.y, view.m), today = todayStr();
+    $('monthTitle').textContent = MONTHS[view.m].toUpperCase() + ' ' + view.y;
+    const grid = $('grid');
+    grid.tHead.innerHTML = '<tr><th class="c1">№ п/п</th><th class="c2">ФИО сотрудника</th><th class="c3">Наименование дела</th><th class="c4">Статус дела</th>' +
+      days.map(x => `<th class="day${x.s === today ? ' today' : ''}">${fmtShort(x.s)}<br><span class="wd">${WD[x.w]}</span></th>`).join('') +
+      '<th class="cm">Комментарии</th></tr>';
+
+    const list = visibleCases();
+    if (!list.length) {
+      grid.tBodies[0].innerHTML = `<tr><td class="empty" colspan="${days.length + 5}">В этом месяце дел нет. Нажмите «Добавить дело».</td></tr>`;
+      return;
+    }
+    grid.tBodies[0].innerHTML = list.map((c, i) => {
+      const k = KIND[c.kind] || { short: '' };
+      const env = c.remind ? ` <span class="env" title="Напоминание отправлено ${fmt(c.remind.sent)}">✉</span>` : '';
+      const status = `<select data-id="${c.id}" class="st">${STATUSES.map(s => `<option${s === c.status ? ' selected' : ''}>${s}</option>`).join('')}</select>`;
+      const cells = days.map(x => {
+        const cls = ['day'], tip = [];
+        let txt = '';
+        const p = periodInfo(c, x.s);
+        if (p) {
+          cls.push(p.last ? 'last' : (p.orange ? 'p14' : 'per'));
+          tip.push(`Срок обжалования до ${fmt(p.end)}` + (p.last ? ' — последний день' : ''));
+        }
+        const mk = c.marks[x.s];
+        if (mk) {
+          cls.push(MARK_CLS[mk.m]);
+          txt = mk.m;
+          tip.unshift(MARK_TITLE[mk.m] + (mk.note ? ': ' + mk.note : ''));
+          if (mk.note) cls.push('note');
+        }
+        if (p && p.last) txt += '<div class="lastlbl">Последний<br>день</div>';
+        if (x.s === today) cls.push('today');
+        return `<td class="${cls.join(' ')}" data-id="${c.id}" data-d="${x.s}" title="${esc(tip.join('\n'))}">${txt}</td>`;
+      }).join('');
+      return `<tr>
+        <td class="c1">${i + 1}</td>
+        <td class="c2" data-edit="${c.id}">${esc(empName(c.empId))}</td>
+        <td class="c3" data-edit="${c.id}"><b>№ ${esc(c.number)}</b> · ${k.short}${env}<br>${esc(c.court)}<br><span class="sub">${esc(c.parties)}${c.subject ? ' · ' + esc(c.subject) : ''}</span></td>
+        <td class="c4">${status}</td>
+        ${cells}
+        <td class="cm" data-edit="${c.id}">${esc(c.comments).replace(/\n/g, '<br>')}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderTotals() {
+    const { rows, total } = monthCounts(view.y, view.m);
+    $('totals').innerHTML = '<tr>' + rows.map(r => `<th>${esc(r.name)}</th>`).join('') + '<th class="all">Всего</th></tr>' +
+      '<tr>' + rows.map(r => `<td>${r.n}</td>`).join('') + `<td class="all">${total}</td></tr>`;
+  }
+
+  function render() {
+    applyAuto();
+    renderControls();
+    renderBanner();
+    renderGrid();
+    renderTotals();
+    $('storageWarn').hidden = storageOk;
+  }
+
+  // ---------- Шапка ----------
+  $('year').addEventListener('change', e => {
+    view.y = +e.target.value;
+    if (view.y === START.y && view.m < START.m) view.m = START.m;
+    render();
+  });
+  $('tabs').addEventListener('click', e => {
+    const b = e.target.closest('button[data-m]');
+    if (!b || b.disabled) return;
+    view.m = +b.dataset.m;
+    render();
+  });
+  $('empFilter').addEventListener('change', e => { view.emp = e.target.value; renderGrid(); });
+  $('search').addEventListener('input', e => { view.q = e.target.value; renderGrid(); });
+  $('btnPrint').addEventListener('click', () => window.print());
+
+  // ---------- Таблица ----------
+  const tbody = $('grid').tBodies[0];
+  tbody.addEventListener('click', e => {
+    const day = e.target.closest('td.day');
+    if (day) { openCellMenu(day); e.stopPropagation(); return; }
+    const ed = e.target.closest('[data-edit]');
+    if (ed) openCase(ed.dataset.edit);
+  });
+  tbody.addEventListener('change', e => {
+    if (!e.target.matches('select.st')) return;
+    const c = state.cases.find(x => x.id === e.target.dataset.id);
+    if (!c) return;
+    c.status = e.target.value;
+    save();
+    render();
+  });
+
+  // ---------- Меню ячейки ----------
+  const menu = $('cellMenu');
+  let menuTarget = null;
+  function openCellMenu(td) {
+    const c = state.cases.find(x => x.id === td.dataset.id);
+    if (!c) return;
+    menuTarget = { c, ds: td.dataset.d };
+    const mk = c.marks[menuTarget.ds];
+    $('cmTitle').textContent = `${fmt(menuTarget.ds)} · № ${c.number}`;
+    $('cmNote').value = mk ? mk.note || '' : '';
+    menu.hidden = false;
+    const r = td.getBoundingClientRect();
+    const w = menu.offsetWidth;
+    menu.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - w - 8)) + 'px';
+    menu.style.top = (r.bottom + window.scrollY + 2) + 'px';
+    $('cmNote').focus();
+  }
+  function closeMenu() { menu.hidden = true; menuTarget = null; }
+  menu.addEventListener('click', e => {
+    e.stopPropagation();
+    const b = e.target.closest('button[data-mark]');
+    if (!b || !menuTarget) return;
+    const { c, ds } = menuTarget;
+    closeMenu();
+    setMark(c, ds, b.dataset.mark, $('cmNote').value.trim());
+  });
+  $('cmNote').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && menuTarget) {
+      const { c, ds } = menuTarget;
+      const mk = c.marks[ds];
+      closeMenu();
+      if (mk) setMark(c, ds, mk.m, $('cmNote').value.trim());
+    }
+  });
+  document.addEventListener('click', e => { if (!menu.hidden && !menu.contains(e.target)) closeMenu(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+  $('grid').parentElement.addEventListener('scroll', closeMenu);
+
+  // ---------- Карточка дела ----------
+  let editing = null;
+  function updateDeadlinePreview() {
+    const d = $('f_decision').value, kind = $('f_kind').value;
+    if (!d) { $('f_deadline').textContent = 'Срок обжалования: заполнится при отметке «Р» в таблице или вручную. Для дел ГПК можно указать дату изготовления решения в окончательной форме.'; return; }
+    const end = addMonthsDeadline(d, KIND[kind].months);
+    $('f_deadline').textContent = `Срок обжалования (${KIND[kind].months === 2 ? '2 месяца' : '1 месяц'}): с ${fmt(d)} по ${fmt(end)} включительно.`;
+  }
+  function openCase(id) {
+    editing = id ? state.cases.find(c => c.id === id) : null;
+    const c = editing || { empId: view.emp !== 'all' ? view.emp : '', number: '', kind: 'APPK', court: '', parties: '', subject: '', status: 'Назначено к рассмотрению', decisionDate: '', comments: '' };
+    $('caseTitle').textContent = editing ? 'Редактировать дело' : 'Добавить дело';
+    $('f_emp').innerHTML = '<option value="">— выберите —</option>' + state.employees
+      .filter(e => !e.hidden || e.id === c.empId)
+      .map(e => `<option value="${e.id}">${esc(e.name)}</option>`).join('');
+    $('f_emp').value = c.empId || '';
+    $('f_number').value = c.number;
+    $('f_kind').value = c.kind;
+    $('f_court').value = c.court;
+    $('f_parties').value = c.parties;
+    $('f_subject').value = c.subject || '';
+    $('f_status').innerHTML = STATUSES.map(s => `<option>${s}</option>`).join('');
+    $('f_status').value = c.status;
+    $('f_decision').value = c.decisionDate || '';
+    $('f_comments').value = c.comments || '';
+    $('caseDelete').hidden = !editing;
+    $('caseErr').textContent = '';
+    updateDeadlinePreview();
+    $('dlgCase').showModal();
+  }
+  $('f_decision').addEventListener('input', updateDeadlinePreview);
+  $('f_kind').addEventListener('change', updateDeadlinePreview);
+  $('btnAdd').addEventListener('click', () => openCase(null));
+  $('caseCancel').addEventListener('click', () => $('dlgCase').close());
+  $('caseSave').addEventListener('click', () => {
+    const v = {
+      empId: $('f_emp').value, number: $('f_number').value.trim(), kind: $('f_kind').value,
+      court: $('f_court').value.trim(), parties: $('f_parties').value.trim(), subject: $('f_subject').value.trim(),
+      status: $('f_status').value, decisionDate: $('f_decision').value || null, comments: $('f_comments').value.trim()
+    };
+    const missing = [];
+    if (!v.empId) missing.push('сотрудник');
+    if (!v.number) missing.push('номер дела');
+    if (!v.court) missing.push('суд');
+    if (!v.parties) missing.push('стороны');
+    if (missing.length) { $('caseErr').textContent = 'Заполните обязательные поля: ' + missing.join(', ') + '.'; return; }
+    if (editing) Object.assign(editing, v);
+    else state.cases.push(Object.assign({ id: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), startYm: ymKey(view.y, view.m), marks: {}, remind: null }, v));
+    save();
+    $('dlgCase').close();
+    render();
+    checkReminders();
+  });
+  $('caseDelete').addEventListener('click', () => {
+    if (!editing) return;
+    if (!confirm(`Удалить дело № ${editing.number}? Это действие нельзя отменить.`)) return;
+    state.cases = state.cases.filter(c => c !== editing);
+    save();
+    $('dlgCase').close();
+    render();
+  });
+
+  // ---------- Настройки ----------
+  let draftEmps = [];
+  function renderEmpList() {
+    $('empList').innerHTML = draftEmps.map((e, i) => `<div class="emp-row">
+      <input type="text" data-i="${i}" value="${esc(e.name)}">
+      <label style="margin:0;display:flex;gap:4px;align-items:center"><input type="checkbox" data-h="${i}"${e.hidden ? ' checked' : ''}> скрыть</label>
+    </div>`).join('');
+  }
+  $('empList').addEventListener('input', e => {
+    if (e.target.dataset.i != null) draftEmps[+e.target.dataset.i].name = e.target.value;
+    if (e.target.dataset.h != null) draftEmps[+e.target.dataset.h].hidden = e.target.checked;
+  });
+  $('empAdd').addEventListener('click', () => {
+    draftEmps.push({ id: 'e' + Date.now().toString(36), name: '', hidden: false });
+    renderEmpList();
+    const inputs = $('empList').querySelectorAll('input[type=text]');
+    inputs[inputs.length - 1].focus();
+  });
+  $('btnSettings').addEventListener('click', () => {
+    draftEmps = state.employees.map(e => Object.assign({}, e));
+    renderEmpList();
+    const s = state.settings;
+    $('s_to').value = s.to; $('s_service').value = s.serviceId; $('s_template').value = s.templateId; $('s_key').value = s.publicKey;
+    $('s_testMsg').textContent = ''; $('setErr').textContent = '';
+    $('dlgSettings').showModal();
+  });
+  function draftSettings() {
+    return { to: $('s_to').value.trim(), serviceId: $('s_service').value.trim(), templateId: $('s_template').value.trim(), publicKey: $('s_key').value.trim() };
+  }
+  $('setCancel').addEventListener('click', () => $('dlgSettings').close());
+  $('setSave').addEventListener('click', () => {
+    draftEmps.forEach(e => { e.name = e.name.trim(); });
+    if (draftEmps.some(e => !e.name)) { $('setErr').textContent = 'У каждого сотрудника должно быть ФИО.'; return; }
+    state.employees = draftEmps;
+    state.settings = draftSettings();
+    save();
+    $('dlgSettings').close();
+    lastMailError = '';
+    render();
+    checkReminders();
+  });
+  $('s_test').addEventListener('click', () => {
+    const s = draftSettings();
+    if (!emailConfigured(s)) { $('s_testMsg').textContent = 'Заполните адрес, Service ID, Template ID и Public Key.'; return; }
+    $('s_testMsg').textContent = 'Отправка…';
+    const body = 'Это тестовое письмо из календаря судебных заседаний отдела правового обеспечения. Напоминания настроены верно.';
+    sendMail({ subject: 'Тестовое письмо: календарь судебных заседаний', message: body }, s)
+      .then(() => { $('s_testMsg').textContent = 'Отправлено на ' + s.to; })
+      .catch(err => { $('s_testMsg').textContent = 'Ошибка: ' + errText(err); });
+  });
+
+  // ---------- Почта ----------
+  function emailConfigured(s) { s = s || state.settings; return !!(s.to && s.serviceId && s.templateId && s.publicKey); }
+  function errText(err) { return err && (err.text || err.message) ? (err.text || err.message) : String(err); }
+  function sendMail(params, s) {
+    s = s || state.settings;
+    if (typeof emailjs === 'undefined') return Promise.reject(new Error('библиотека EmailJS не загрузилась (нет интернета?)'));
+    return emailjs.send(s.serviceId, s.templateId, Object.assign({ to_email: s.to }, params), { publicKey: s.publicKey });
+  }
+  function reminderParams(c, end, left) {
+    const k = KIND[c.kind];
+    const fields = {
+      employee: empName(c.empId), case_number: c.number, case_kind: k.short, court: c.court, parties: c.parties,
+      decision_date: fmt(c.decisionDate), deadline: fmt(end), days_left: String(left)
+    };
+    const message = [
+      `Сотрудник: ${fields.employee}`,
+      `№ дела: ${c.number}`,
+      `Вид дела: ${k.full}`,
+      `Суд: ${c.court}`,
+      `Стороны: ${c.parties}`,
+      `Дата оглашения решения: ${fields.decision_date}`,
+      `Дата окончания срока обжалования: ${fields.deadline}`,
+      `Осталось дней: ${left}`
+    ].join('\n');
+    return Object.assign({ subject: `Напоминание: истекает срок обжалования по делу № ${c.number}`, message }, fields);
+  }
+  let sending = false;
+  async function checkReminders() {
+    if (sending || !emailConfigured()) return;
+    sending = true;
+    try {
+      for (const { c, end, left } of reminderCases()) {
+        if (c.remind && c.remind.forEnd === end) continue;
+        try {
+          await sendMail(reminderParams(c, end, left));
+          c.remind = { forEnd: end, sent: todayStr() };
+          lastMailError = '';
+          save();
+        } catch (err) {
+          lastMailError = errText(err);
+          console.warn('Не удалось отправить напоминание', err);
+        }
+      }
+    } finally {
+      sending = false;
+      render();
+    }
+  }
+
+  // ---------- Экспорт в Excel ----------
+  function sheetFor(y, m) {
+    const days = workdays(y, m);
+    const list = state.cases.filter(c => caseInMonth(c, y, m)).sort(sortCases);
+    const aoa = [
+      [`${MONTHS[m].toUpperCase()} ${y}`],
+      ['Обозначения: З — заседание проведено; Р — решение оглашено; О — отложено; «срок» — срок обжалования; «срок (14 дн.)» — последние 14 дней'],
+      ['№ п/п', 'ФИО сотрудника', 'Наименование дела', 'Статус дела'].concat(days.map(x => `${fmtShort(x.s)} ${WD[x.w]}`), ['Комментарии'])
+    ];
+    list.forEach((c, i) => {
+      aoa.push([i + 1, empName(c.empId), caseText(c), c.status].concat(days.map(x => {
+        const mk = c.marks[x.s], p = periodInfo(c, x.s);
+        let v = mk ? mk.m + (mk.note ? ` (${mk.note})` : '') : '';
+        if (p) {
+          const tag = p.last ? 'Последний день' : (p.orange ? 'срок (14 дн.)' : 'срок');
+          v = v ? v + ' / ' + tag : tag;
+        }
+        return v;
+      }), [c.comments || '']));
+    });
+    const cnt = monthCounts(y, m);
+    aoa.push([], ['', 'Количество заседаний за месяц']);
+    cnt.rows.forEach(r => aoa.push(['', r.name, r.n]));
+    aoa.push(['', 'Всего', cnt.total]);
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ wch: 6 }, { wch: 18 }, { wch: 50 }, { wch: 28 }].concat(days.map(() => ({ wch: 10 })), [{ wch: 35 }]);
+    return ws;
+  }
+  $('btnExport').addEventListener('click', () => { $('expErr').textContent = ''; $('dlgExport').showModal(); });
+  $('expCancel').addEventListener('click', () => $('dlgExport').close());
+  $('expGo').addEventListener('click', () => {
+    if (typeof XLSX === 'undefined') { $('expErr').textContent = 'Библиотека Excel не загрузилась — проверьте подключение к интернету.'; return; }
+    const mode = document.querySelector('input[name=exp]:checked').value;
+    const wb = XLSX.utils.book_new();
+    let name;
+    if (mode === 'month') {
+      XLSX.utils.book_append_sheet(wb, sheetFor(view.y, view.m), MONTHS[view.m]);
+      name = `Судебные_заседания_${ymKey(view.y, view.m)}.xlsx`;
+    } else {
+      for (let m = view.y === START.y ? START.m : 0; m < 12; m++) XLSX.utils.book_append_sheet(wb, sheetFor(view.y, m), MONTHS[m]);
+      name = `Судебные_заседания_${view.y}.xlsx`;
+    }
+    XLSX.writeFile(wb, name);
+    $('dlgExport').close();
+  });
+
+  // ---------- Резервная копия ----------
+  $('btnBackup').addEventListener('click', () => { $('bkErr').textContent = ''; $('dlgBackup').showModal(); });
+  $('bkClose').addEventListener('click', () => $('dlgBackup').close());
+  $('bkSave').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `резервная_копия_заседания_${todayStr()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+  $('bkLoad').addEventListener('click', () => $('bkFile').click());
+  $('bkFile').addEventListener('change', e => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const s = JSON.parse(reader.result);
+        if (!s || !Array.isArray(s.cases) || !Array.isArray(s.employees)) throw new Error('неверный формат файла');
+        if (!confirm(`Заменить текущие данные данными из файла «${file.name}» (дел: ${s.cases.length})?`)) return;
+        state = normalize(s);
+        save();
+        $('dlgBackup').close();
+        render();
+        checkReminders();
+      } catch (err) {
+        $('bkErr').textContent = 'Не удалось загрузить: ' + errText(err);
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+  });
+
+  // ---------- Запуск ----------
+  render();
+  checkReminders();
+  setInterval(() => { render(); checkReminders(); }, 60 * 60 * 1000);
+})();
+</script>
+</body>
+</html>
